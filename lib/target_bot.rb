@@ -154,6 +154,7 @@ class TargetBot
       Capybara.default_max_wait_time = 30
       retry_count -= 1
       retry if retry_count > 0
+      Capybara.default_max_wait_time = old_wait_time
       raise e unless without_exception
       nil
     end
