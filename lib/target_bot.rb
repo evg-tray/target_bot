@@ -11,10 +11,11 @@ end
 class TargetBot
   include Capybara::DSL
 
-  TARGET_URL = 'https://target-sandbox.my.com'
-  CREATE_APP_URL = "#{TARGET_URL}/create_pad_groups/"
-  CREATE_PLACEMENT_TEMPLATE_URL = "#{TARGET_URL}/pad_groups/{id}/create/"
-  APP_TEMPLATE_URL = "#{TARGET_URL}/pad_groups/{id}/"
+  TARGET_URL = 'https://target.my.com'
+  TARGET_SANDBOX_URL = 'https://target-sandbox.my.com'
+  CREATE_APP_URL = '/create_pad_groups/'
+  CREATE_PLACEMENT_TEMPLATE_URL = '/pad_groups/{id}/create/'
+  APP_TEMPLATE_URL = '/pad_groups/{id}/'
   RETRY_COUNT = 2
 
   LOGIN_PAGE = {
@@ -40,10 +41,11 @@ class TargetBot
 
   attr_reader :success, :error_message, :result
 
-  def initialize(login, pass, link)
+  def initialize(login, pass, link, test = false)
     @login = login
     @pass = pass
     @link = link
+    @test = test
     @result = {}
     @session = Capybara::Session.new(:webkit)
   end
@@ -56,7 +58,7 @@ class TargetBot
   private
 
   def create_app
-    @session.visit CREATE_APP_URL
+    @session.visit create_app_url
     key = SecureRandom.base64(5)
     description_field = wait { @session.find(CREATE_APP_PAGE[:description_field]) }
     description_field.set("#{description_field.value} #{key}")
@@ -85,12 +87,25 @@ class TargetBot
 
   def create_placements(app_id, count)
     (1..count).each do |index|
+      create_placement(app_id, index)
+    end
+  end
+
+  def create_placement(app_id, index)
+    loop do
       visit_by_template_url(app_id, CREATE_PLACEMENT_TEMPLATE_URL)
       save_button = wait { @session.find(PLACEMENT_BUTTONS[:create_placement_button]) }
       @session.all(PLACEMENT_TYPES)[index].click
       save_button.click
-      wait { @session.find(PLACEMENT_BUTTONS[:edit_app_button]) }
+      wait(:without_exception) { @session.find(PLACEMENT_BUTTONS[:edit_app_button]) }
+      break if placement_created?(app_id, index + 1)
     end
+  end
+
+  def placement_created?(app_id, count)
+    visit_by_template_url(app_id, APP_TEMPLATE_URL)
+    wait { @session.find(APPS_PAGE[:next_button_paginator]) }
+    @session.all(PLACEMENT_LINKS).count == count
   end
 
   def prepare_result(app_id)
@@ -105,7 +120,7 @@ class TargetBot
   end
 
   def sign_in
-    @session.visit TARGET_URL
+    @session.visit target_url
     wait { @session.find(LOGIN_PAGE[:login_button]).click }
     @session.find_field('login').set(@login)
     @session.find_field('password').set(@pass)
@@ -118,7 +133,16 @@ class TargetBot
   end
 
   def visit_by_template_url(app_id, template_url)
-    @session.visit template_url.gsub(/{id}/, app_id)
+    @session.visit "#{target_url}#{template_url}".gsub(/{id}/, app_id)
+  end
+
+  def target_url
+    return TARGET_SANDBOX_URL if @test
+    TARGET_URL
+  end
+
+  def create_app_url
+    "#{target_url}#{CREATE_APP_URL}"
   end
 
   def wait(without_exception = false, &block)
@@ -126,12 +150,12 @@ class TargetBot
     retry_count = RETRY_COUNT
     begin
        result = yield
-    rescue Capybara::ElementNotFound
+    rescue Capybara::ElementNotFound => e
       Capybara.default_max_wait_time = 30
       retry_count -= 1
       retry if retry_count > 0
-      raise "Element not found" unless without_exception
-      return nil
+      raise e unless without_exception
+      nil
     end
     Capybara.default_max_wait_time = old_wait_time
     result

@@ -5,9 +5,9 @@ class TargetWorker
   include Sidekiq::Worker
   sidekiq_options retry: false
 
-  def perform(login, pass, link)
+  def perform(login, pass, link, test = false)
     begin
-      bot = TargetBot.new(login, pass, link)
+      bot = TargetBot.new(login, pass, link, test)
       bot.run
       puts bot.result
     rescue Exception => e
