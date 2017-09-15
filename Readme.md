@@ -1,19 +1,15 @@
 # Target Bot
-###Управление sidekiq:
+## Управление sidekiq:
+- `rake sidekiq:start`
+- `rake sidekiq:stop`
+- `rake sidekiq:restart`
+### Sidekiq Web Dashboard:
+`rake sidekiq:dash`
+### Запуск:
+Требуется `Redis`, библиотека `QT` версии 4.8+.
 
-rake sidekiq:start
+Создать файл `.env` и заполнить по примеру корректным логином, паролем.
 
-rake sidekiq:stop
+`rake sidekiq:start`
 
-rake sidekiq:restart
-
-###Sidekiq Web Dashboard:
-
-rake sidekiq:dash
-
-###Запуск:
-Требуется Redis, библиотека QT.
-
-Создать файл .env и заполнить по примеру. 
-
-ruby main.rb
+`ruby main.rb`
